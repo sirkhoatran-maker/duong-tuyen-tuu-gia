@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dương Tuyền Tửu Gia - Demo Manga</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .book-card { perspective: 1000px; }
+        .book-cover-wrapper {
+            transform-style: preserve-3d;
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s ease;
+        }
+        .book-card:hover .book-cover-wrapper {
+            transform: translateY(-8px) rotateY(-8deg) scale(1.02);
+            box-shadow: 15px 20px 30px rgba(0, 0, 0, 0.6), -2px 0 8px rgba(255, 255, 255, 0.1);
+        }
+        .flipbook-viewport { perspective: 2400px; user-select: none; width: 100%; height: 100%; }
+        .book-stage {
+            position: relative;
+            height: min(74vh, calc(92vw * 0.75));
+            width: calc(min(74vh, calc(92vw * 0.75)) * 1.3333);
+            transform-style: preserve-3d; transition: transform 0.5s ease;
+        }
+        .book-stage.single-mode {
+            height: min(76vh, calc(90vw * 1.5));
+            width: calc(min(76vh, calc(90vw * 1.5)) * 0.6667);
+        }
+        .sheet {
+            position: absolute; top: 0; left: 0; width: 50%; height: 100%;
+            transform-origin: right center; transform-style: preserve-3d;
+            transition: transform 0.75s cubic-bezier(0.645, 0.045, 0.355, 1);
+            cursor: pointer; border-top-left-radius: 6px; border-bottom-left-radius: 6px;
+        }
+        .book-stage.single-mode .sheet { width: 100%; }
+        .sheet.flipped { transform: rotateY(180deg); }
+        .page-face {
+            position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+            overflow: hidden; background-color: #090d16; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+        .page-front { border-top-left-radius: 6px; border-bottom-left-radius: 6px; border-right: 1px solid rgba(255,255,255,0.08); }
+        .page-front::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(to left, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.1) 6%, transparent 18%); pointer-events: none;
+        }
+        .page-back { transform: rotateY(180deg); border-top-right-radius: 6px; border-bottom-right-radius: 6px; border-left: 1px solid rgba(0,0,0,0.4); }
+        .page-back::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(to right, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.1) 6%, transparent 18%); pointer-events: none;
+        }
+        .book-base-left, .book-base-right {
+            position: absolute; top: 0; width: 50%; height: 100%; background: #0f172a; border: 1px solid #334155; z-index: 0;
+        }
+        .book-base-left { left: 0; border-top-left-radius: 8px; border-bottom-left-radius: 8px; box-shadow: -8px 12px 25px rgba(0,0,0,0.6); }
+        .book-base-right { right: 0; border-top-right-radius: 8px; border-bottom-right-radius: 8px; box-shadow: 8px 12px 25px rgba(0,0,0,0.6); }
+        .book-stage.single-mode .book-base-left { display: none; }
+        .book-stage.single-mode .book-base-right { width: 100%; border-radius: 8px; }
+        .single-page-slide { animation: fadeSlideManga 0.35s ease-out; }
+        @keyframes fadeSlideManga {
+            0% { opacity: 0.4; transform: scale(0.98) rotateY(-12deg); }
+            100% { opacity: 1; transform: scale(1) rotateY(0deg); }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-amber-500 selection:text-slate-950 overflow-x-hidden">
+    
+    <header class="sticky top-0 z-30 bg-slate-900/85 backdrop-blur-md border-b border-slate-800/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center">
+                    <i class="fa-solid fa-wine-bottle text-slate-950 text-sm"></i>
+                </div>
+                <h1 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                    Dương Tuyền <span class="text-amber-500">Tửu Gia</span>
+                    <span class="text-[10px] font-semibold uppercase px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full">Demo Manga</span>
+                </h1>
+            </div>
+            <div class="flex-1 max-w-xs sm:max-w-md">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" id="searchInput" oninput="renderHomepage()" placeholder="Tìm truyện..." 
+                        class="w-full bg-slate-800/80 border border-slate-700 focus:border-amber-500 rounded-xl pl-8 pr-3 py-1.5 text-xs sm:text-sm text-slate-100 focus:outline-none">
+                </div>
+            </div>
+            <button onclick="toggleSound()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 w-9 h-9 flex items-center justify-center">
+                <i class="fa-solid fa-volume-high text-amber-400 text-sm" id="soundIcon"></i>
+            </button>
+        </div>
+    </header>
+    
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
+        <div id="bookGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-7"></div>
+    </main>
+
+    <div id="readerModal" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl hidden flex-col justify-between p-3 sm:p-5">
+        <div class="max-w-6xl w-full mx-auto flex items-center justify-between bg-slate-900/90 border border-slate-800 px-4 py-2.5 rounded-2xl shadow-lg z-20">
+            <div class="flex items-center gap-3 min-w-0">
+                <button onclick="closeReader()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center gap-2 text-xs sm:text-sm font-medium">
+                    <i class="fa-solid fa-arrow-left"></i><span class="hidden sm:inline">Kệ truyện</span>
+                </button>
+                <div class="truncate">
+                    <h3 id="readerTitle" class="font-bold text-white text-sm sm:text-base truncate"></h3>
+                    <p id="readerSubtitle" class="text-[11px] text-amber-400"></p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="toggleSpreadMode()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center gap-2">
+                    <i class="fa-solid fa-book-open text-amber-400" id="spreadModeIcon"></i>
+                    <span id="spreadModeText" class="hidden sm:inline">Chế độ 2 Trang</span>
+                </button>
+                <button onclick="closeReader()" class="w-9 h-9 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 w-full flex items-center justify-center relative my-2 overflow-hidden flipbook-viewport" id="flipbookTouchArea">
+            <button onclick="nextPage()" id="nextBtn" class="absolute left-2 sm:left-5 z-30 px-3 h-10 sm:h-12 rounded-full bg-slate-900/90 hover:bg-amber-500 text-white hover:text-slate-950 border border-slate-700 shadow-xl flex items-center justify-center gap-1.5 disabled:opacity-30">
+                <i class="fa-solid fa-chevron-left"></i><span class="text-xs font-bold hidden md:inline">Trang tiếp</span>
+            </button>
+            <div id="bookStage" class="book-stage flex items-center justify-center"></div>
+            <button onclick="prevPage()" id="prevBtn" class="absolute right-2 sm:right-5 z-30 px-3 h-10 sm:h-12 rounded-full bg-slate-900/90 hover:bg-amber-500 text-white hover:text-slate-950 border border-slate-700 shadow-xl flex items-center justify-center gap-1.5 disabled:opacity-30">
+                <span class="text-xs font-bold hidden md:inline">Trang trước</span><i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+
+        <div class="max-w-4xl w-full mx-auto bg-slate-900/90 border border-slate-800 px-4 py-2.5 rounded-2xl flex items-center justify-between gap-3 z-20">
+            <span id="pageIndicator" class="text-xs font-semibold px-3 py-1 rounded-lg bg-slate-800 text-amber-400 border border-slate-700"></span>
+            <div class="flex items-center gap-3 w-44 sm:w-64">
+                <input type="range" id="pageSlider" dir="rtl" min="0" max="5" value="0" oninput="onSliderChange(this.value)" class="w-full accent-amber-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const books = [{"id":"book_1793686794552","title":"Tiểu đầu bếp cung đình","author":"Etsushi Ogawa","tag":"High Quality","cover":"assets/book_01_cover.jpg","pages":[{"src":"assets/book_01_page_001.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.003_clean.jpg"},{"src":"assets/book_01_page_002.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.004_clean.jpg"},{"src":"assets/book_01_page_003.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.006_clean.jpg"},{"src":"assets/book_01_page_004.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.007_clean.jpg"},{"src":"assets/book_01_page_005.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.008_clean.jpg"},{"src":"assets/book_01_page_006.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.009_clean.jpg"},{"src":"assets/book_01_page_007.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.010_clean.jpg"},{"src":"assets/book_01_page_008.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.011_clean.jpg"},{"src":"assets/book_01_page_009.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.012_clean.jpg"},{"src":"assets/book_01_page_010.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.013_clean.jpg"},{"src":"assets/book_01_page_011.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.014_clean.jpg"},{"src":"assets/book_01_page_012.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.015_clean.jpg"},{"src":"assets/book_01_page_013.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.016_clean.jpg"},{"src":"assets/book_01_page_014.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.017_clean.jpg"},{"src":"assets/book_01_page_015.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.018_clean.jpg"},{"src":"assets/book_01_page_016.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.019_clean.jpg"},{"src":"assets/book_01_page_017.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.020_clean.jpg"},{"src":"assets/book_01_page_018.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.021_clean.jpg"},{"src":"assets/book_01_page_019.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.022_clean.jpg"},{"src":"assets/book_01_page_020.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.023_clean.jpg"},{"src":"assets/book_01_page_021.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.024_clean.jpg"},{"src":"assets/book_01_page_022.jpg","name":"Shin Chuuka Ichiban vol. 10 pg.025_clean.jpg"}]},{"id":"book_1793686792872","title":"Trung Hoa Nhất Phiên","author":"Etsushi Ogawa","tag":"Độc Quyền","cover":"assets/book_02_cover.jpg","pages":[{"src":"assets/book_02_page_001.jpg","name":"Vol 05_Page50_clean.jpg"},{"src":"assets/book_02_page_002.jpg","name":"Vol 05_Page51_clean.jpg"},{"src":"assets/book_02_page_003.jpg","name":"Vol 05_Page52_clean.png"},{"src":"assets/book_02_page_004.jpg","name":"Vol 05_Page53_clean.png"},{"src":"assets/book_02_page_005.jpg","name":"Vol 05_Page54_clean.png"},{"src":"assets/book_02_page_006.jpg","name":"Vol 05_Page55_clean.png"},{"src":"assets/book_02_page_007.jpg","name":"Vol 05_Page56_clean.png"},{"src":"assets/book_02_page_008.jpg","name":"Vol 05_Page57_clean.png"},{"src":"assets/book_02_page_009.jpg","name":"Vol 05_Page58_clean.png"},{"src":"assets/book_02_page_010.jpg","name":"Vol 05_Page59_clean.png"},{"src":"assets/book_02_page_011.jpg","name":"Vol 05_Page60_clean.png"},{"src":"assets/book_02_page_012.jpg","name":"Vol 05_Page61_clean.png"},{"src":"assets/book_02_page_013.jpg","name":"Vol 05_Page62_clean.png"},{"src":"assets/book_02_page_014.jpg","name":"Vol 05_Page63_clean.png"},{"src":"assets/book_02_page_015.jpg","name":"Vol 05_Page64_clean.png"},{"src":"assets/book_02_page_016.jpg","name":"Vol 05_Page65_clean.png"},{"src":"assets/book_02_page_017.jpg","name":"Vol 05_Page66_clean.jpg"},{"src":"assets/book_02_page_018.jpg","name":"Vol 05_Page67_clean.png"},{"src":"assets/book_02_page_019.jpg","name":"Vol 05_Page68_clean.jpg"}]},{"id":"book_1793686790512","title":"Đầu bếp của Nobunaga","author":"Mitsuru Nishimura","tag":"High Quality","cover":"assets/book_03_cover.jpg","pages":[{"src":"assets/book_03_page_001.jpg","name":"DLraw.net-0050_clean.png"},{"src":"assets/book_03_page_002.jpg","name":"DLraw.net-0051_clean.png"},{"src":"assets/book_03_page_003.jpg","name":"DLraw.net-0052_clean.png"},{"src":"assets/book_03_page_004.jpg","name":"DLraw.net-0053_clean.png"},{"src":"assets/book_03_page_005.jpg","name":"DLraw.net-0054_clean.png"},{"src":"assets/book_03_page_006.jpg","name":"DLraw.net-0055_clean.png"},{"src":"assets/book_03_page_007.jpg","name":"DLraw.net-0056_clean.png"},{"src":"assets/book_03_page_008.jpg","name":"DLraw.net-0057_clean.png"},{"src":"assets/book_03_page_009.jpg","name":"DLraw.net-0058_clean.png"},{"src":"assets/book_03_page_010.jpg","name":"DLraw.net-0059_clean.png"},{"src":"assets/book_03_page_011.jpg","name":"DLraw.net-0060_clean.png"},{"src":"assets/book_03_page_012.jpg","name":"DLraw.net-0061_clean.png"},{"src":"assets/book_03_page_013.jpg","name":"DLraw.net-0062_clean.png"},{"src":"assets/book_03_page_014.jpg","name":"DLraw.net-0063_clean.png"},{"src":"assets/book_03_page_015.jpg","name":"DLraw.net-0064_clean.png"},{"src":"assets/book_03_page_016.jpg","name":"DLraw.net-0065_clean.png"},{"src":"assets/book_03_page_017.jpg","name":"DLraw.net-0066_clean.png"},{"src":"assets/book_03_page_018.jpg","name":"DLraw.net-0067_clean.png"},{"src":"assets/book_03_page_019.jpg","name":"DLraw.net-0068_clean.png"},{"src":"assets/book_03_page_020.jpg","name":"DLraw.net-0069_clean.png"},{"src":"assets/book_03_page_021.jpg","name":"DLraw.net-0070_clean.png"},{"src":"assets/book_03_page_022.jpg","name":"DLraw.net-0071_clean.png"},{"src":"assets/book_03_page_023.jpg","name":"DLraw.net-0072_clean.png"}]},{"id":"book_1793686789944","title":"Siêu Quậy Kotaro","author":"Hiruta Tatsuya","tag":"Độc Quyền","cover":"assets/book_04_cover.jpg","pages":[{"src":"assets/book_04_page_001.jpg","name":"Kohtaroh#26_077.jpg"},{"src":"assets/book_04_page_002.jpg","name":"Kohtaroh#26_078.jpg"},{"src":"assets/book_04_page_003.jpg","name":"Kohtaroh#26_079.jpg"},{"src":"assets/book_04_page_004.jpg","name":"Kohtaroh#26_080.jpg"},{"src":"assets/book_04_page_005.jpg","name":"Kohtaroh#26_081.jpg"},{"src":"assets/book_04_page_006.jpg","name":"Kohtaroh#26_082.jpg"},{"src":"assets/book_04_page_007.jpg","name":"Kohtaroh#26_083.jpg"},{"src":"assets/book_04_page_008.jpg","name":"Kohtaroh#26_084.jpg"},{"src":"assets/book_04_page_009.jpg","name":"Kohtaroh#26_085.jpg"},{"src":"assets/book_04_page_010.jpg","name":"Kohtaroh#26_086.jpg"},{"src":"assets/book_04_page_011.jpg","name":"Kohtaroh#26_087.jpg"},{"src":"assets/book_04_page_012.jpg","name":"Kohtaroh#26_088.jpg"},{"src":"assets/book_04_page_013.jpg","name":"Kohtaroh#26_089.jpg"},{"src":"assets/book_04_page_014.jpg","name":"Kohtaroh#26_090.jpg"},{"src":"assets/book_04_page_015.jpg","name":"Kohtaroh#26_091.jpg"},{"src":"assets/book_04_page_016.jpg","name":"Kohtaroh#26_092.jpg"},{"src":"assets/book_04_page_017.jpg","name":"Kohtaroh#26_093.jpg"},{"src":"assets/book_04_page_018.jpg","name":"Kohtaroh#26_094.jpg"},{"src":"assets/book_04_page_019.jpg","name":"Kohtaroh#26_095.jpg"},{"src":"assets/book_04_page_020.jpg","name":"Kohtaroh#26_096.jpg"},{"src":"assets/book_04_page_021.jpg","name":"Kohtaroh#26_097.jpg"},{"src":"assets/book_04_page_022.jpg","name":"Kohtaroh#26_098.jpg"}]},{"id":"book_1","title":"Shin Kotaro","author":"Hiruta Tatsuya","tag":"High Quality","cover":"assets/book_05_cover.jpg","pages":[{"src":"assets/book_05_page_001.jpg","name":"102_clean.jpg"},{"src":"assets/book_05_page_002.jpg","name":"103_clean.jpg"},{"src":"assets/book_05_page_003.jpg","name":"104_clean.jpg"},{"src":"assets/book_05_page_004.jpg","name":"105_clean.jpg"},{"src":"assets/book_05_page_005.jpg","name":"106_clean.jpg"},{"src":"assets/book_05_page_006.jpg","name":"107_clean.jpg"},{"src":"assets/book_05_page_007.jpg","name":"108_clean.jpg"},{"src":"assets/book_05_page_008.jpg","name":"109_clean.jpg"},{"src":"assets/book_05_page_009.jpg","name":"110_clean.jpg"},{"src":"assets/book_05_page_010.jpg","name":"111_clean.jpg"},{"src":"assets/book_05_page_011.jpg","name":"112_clean.jpg"},{"src":"assets/book_05_page_012.jpg","name":"113_clean.jpg"},{"src":"assets/book_05_page_013.jpg","name":"114_clean.jpg"},{"src":"assets/book_05_page_014.jpg","name":"115_clean.jpg"},{"src":"assets/book_05_page_015.jpg","name":"116_clean.jpg"},{"src":"assets/book_05_page_016.jpg","name":"117_clean.jpg"},{"src":"assets/book_05_page_017.jpg","name":"118_clean.jpg"},{"src":"assets/book_05_page_018.jpg","name":"119_clean.jpg"},{"src":"assets/book_05_page_019.jpg","name":"122_clean.jpg"}]},{"id":"book_2","title":"Mister Ajikko II","author":"Daisuke Terasawa","tag":"Độc Quyền","cover":"assets/book_06_cover.jpg","pages":[{"src":"assets/book_06_page_001.jpg","name":"015_clean.jpg"},{"src":"assets/book_06_page_002.jpg","name":"016_clean.jpg"},{"src":"assets/book_06_page_003.jpg","name":"017_clean.jpg"},{"src":"assets/book_06_page_004.jpg","name":"018_clean.jpg"},{"src":"assets/book_06_page_005.jpg","name":"019_clean.jpg"},{"src":"assets/book_06_page_006.jpg","name":"020_clean.jpg"},{"src":"assets/book_06_page_007.jpg","name":"021_clean.jpg"},{"src":"assets/book_06_page_008.jpg","name":"022_clean.jpg"},{"src":"assets/book_06_page_009.jpg","name":"023_clean.jpg"},{"src":"assets/book_06_page_010.jpg","name":"024_clean.jpg"},{"src":"assets/book_06_page_011.jpg","name":"025_clean.jpg"},{"src":"assets/book_06_page_012.jpg","name":"026_clean.jpg"},{"src":"assets/book_06_page_013.jpg","name":"027_clean.jpg"},{"src":"assets/book_06_page_014.jpg","name":"028_clean.jpg"},{"src":"assets/book_06_page_015.jpg","name":"029_clean.jpg"},{"src":"assets/book_06_page_016.jpg","name":"030_clean.jpg"},{"src":"assets/book_06_page_017.jpg","name":"031_clean.jpg"},{"src":"assets/book_06_page_018.jpg","name":"032_clean.jpg"},{"src":"assets/book_06_page_019.jpg","name":"033_clean.jpg"},{"src":"assets/book_06_page_020.jpg","name":"034_clean.jpg"},{"src":"assets/book_06_page_021.jpg","name":"035_clean.jpg"},{"src":"assets/book_06_page_022.jpg","name":"036_clean.jpg"},{"src":"assets/book_06_page_023.jpg","name":"037_clean.jpg"},{"src":"assets/book_06_page_024.jpg","name":"038_clean.jpg"},{"src":"assets/book_06_page_025.jpg","name":"039_clean.jpg"},{"src":"assets/book_06_page_026.jpg","name":"040_clean.jpg"},{"src":"assets/book_06_page_027.jpg","name":"041_clean.jpg"},{"src":"assets/book_06_page_028.jpg","name":"042_clean.jpg"},{"src":"assets/book_06_page_029.jpg","name":"043_clean.jpg"},{"src":"assets/book_06_page_030.jpg","name":"044_clean.jpg"},{"src":"assets/book_06_page_031.jpg","name":"045_clean.jpg"}]},{"id":"book_3","title":"Vua Bếp Sushi","author":"Aria Vance","tag":"High Quality","cover":"assets/book_07_cover.jpg","pages":[{"src":"assets/book_07_page_001.jpg","name":"Sushi2-V16_Page4.jpg"},{"src":"assets/book_07_page_002.jpg","name":"Sushi2-V16_Page5.jpg"},{"src":"assets/book_07_page_003.jpg","name":"Sushi2-V16_Page6.jpg"},{"src":"assets/book_07_page_004.jpg","name":"Sushi2-V16_Page7.jpg"},{"src":"assets/book_07_page_005.jpg","name":"Sushi2-V16_Page8.jpg"},{"src":"assets/book_07_page_006.jpg","name":"Sushi2-V16_Page9.jpg"},{"src":"assets/book_07_page_007.jpg","name":"Sushi2-V16_Page10.jpg"},{"src":"assets/book_07_page_008.jpg","name":"Sushi2-V16_Page11.jpg"},{"src":"assets/book_07_page_009.jpg","name":"Sushi2-V16_Page12.jpg"},{"src":"assets/book_07_page_010.jpg","name":"Sushi2-V16_Page13.jpg"},{"src":"assets/book_07_page_011.jpg","name":"Sushi2-V16_Page14.jpg"},{"src":"assets/book_07_page_012.jpg","name":"Sushi2-V16_Page15.jpg"},{"src":"assets/book_07_page_013.jpg","name":"Sushi2-V16_Page16.jpg"},{"src":"assets/book_07_page_014.jpg","name":"Sushi2-V16_Page17.jpg"},{"src":"assets/book_07_page_015.jpg","name":"Sushi2-V16_Page18.jpg"},{"src":"assets/book_07_page_016.jpg","name":"Sushi2-V16_Page19.jpg"},{"src":"assets/book_07_page_017.jpg","name":"Sushi2-V16_Page20.jpg"}]},{"id":"book_4","title":"Quán Ăn Đêm","author":"Yarō Abe","tag":"Độc Quyền","cover":"assets/book_08_cover.jpg","pages":[{"src":"assets/book_08_page_001.jpg","name":"Shinya02_Page2.jpg"},{"src":"assets/book_08_page_002.jpg","name":"Shinya02_Page3.jpg"},{"src":"assets/book_08_page_003.jpg","name":"Shinya02_Page4.jpg"},{"src":"assets/book_08_page_004.jpg","name":"Shinya02_Page5.jpg"},{"src":"assets/book_08_page_005.jpg","name":"Shinya02_Page6.jpg"},{"src":"assets/book_08_page_006.jpg","name":"Shinya02_Page7.jpg"},{"src":"assets/book_08_page_007.jpg","name":"Shinya02_Page8.jpg"},{"src":"assets/book_08_page_008.jpg","name":"Shinya02_Page9.jpg"},{"src":"assets/book_08_page_009.jpg","name":"Shinya02_Page10.jpg"},{"src":"assets/book_08_page_010.jpg","name":"Shinya02_Page11.jpg"},{"src":"assets/book_08_page_011.jpg","name":"Shinya02_Page12.jpg"},{"src":"assets/book_08_page_012.jpg","name":"Shinya02_Page13.jpg"},{"src":"assets/book_08_page_013.jpg","name":"Shinya02_Page14.jpg"},{"src":"assets/book_08_page_014.jpg","name":"Shinya02_Page15.jpg"},{"src":"assets/book_08_page_015.jpg","name":"Shinya02_Page16.jpg"},{"src":"assets/book_08_page_016.jpg","name":"Shinya02_Page17.jpg"}]},{"id":"book_1793687716637","title":"Cooking Papa","author":"Tochi Ueyama","tag":"Độc Quyền","cover":"assets/book_09_cover.jpg","pages":[{"src":"assets/book_09_page_001.jpg","name":"Copy of PAPA1_Page2.jpg"},{"src":"assets/book_09_page_002.jpg","name":"Copy of PAPA1_Page3.jpg"},{"src":"assets/book_09_page_003.jpg","name":"Copy of PAPA1_Page4.jpg"},{"src":"assets/book_09_page_004.jpg","name":"Copy of PAPA1_Page5.jpg"},{"src":"assets/book_09_page_005.jpg","name":"Copy of PAPA1_Page6.jpg"},{"src":"assets/book_09_page_006.jpg","name":"Copy of PAPA1_Page7.jpg"},{"src":"assets/book_09_page_007.jpg","name":"Copy of PAPA1_Page8.jpg"},{"src":"assets/book_09_page_008.jpg","name":"Copy of PAPA1_Page9.jpg"},{"src":"assets/book_09_page_009.jpg","name":"Copy of PAPA1_Page10.jpg"},{"src":"assets/book_09_page_010.jpg","name":"Copy of PAPA1_Page11.jpg"},{"src":"assets/book_09_page_011.jpg","name":"Copy of PAPA1_Page12.jpg"},{"src":"assets/book_09_page_012.jpg","name":"Copy of PAPA1_Page13.jpg"},{"src":"assets/book_09_page_013.jpg","name":"Copy of PAPA1_Page14.jpg"},{"src":"assets/book_09_page_014.jpg","name":"Copy of PAPA1_Page15.jpg"},{"src":"assets/book_09_page_015.jpg","name":"Copy of PAPA1_Page16.jpg"},{"src":"assets/book_09_page_016.jpg","name":"Copy of PAPA1_Page17.jpg"},{"src":"assets/book_09_page_017.jpg","name":"Copy of PAPA1_Page18.jpg"},{"src":"assets/book_09_page_018.jpg","name":"Copy of PAPA1_Page19.jpg"},{"src":"assets/book_09_page_019.jpg","name":"Copy of PAPA1_Page20.jpg"}]},{"id":"book_1793687794884","title":"The Chef","author":"Mai Tsurugina","tag":"Độc Quyền","cover":"assets/book_10_cover.jpg","pages":[{"src":"assets/book_10_page_001.jpg","name":"ThechefV20_Page2.jpg"},{"src":"assets/book_10_page_002.jpg","name":"ThechefV20_Page3.jpg"},{"src":"assets/book_10_page_003.jpg","name":"ThechefV20_Page4.jpg"},{"src":"assets/book_10_page_004.jpg","name":"ThechefV20_Page5.jpg"},{"src":"assets/book_10_page_005.jpg","name":"ThechefV20_Page6.jpg"},{"src":"assets/book_10_page_006.jpg","name":"ThechefV20_Page7.jpg"},{"src":"assets/book_10_page_007.jpg","name":"ThechefV20_Page8.jpg"},{"src":"assets/book_10_page_008.jpg","name":"ThechefV20_Page9.jpg"},{"src":"assets/book_10_page_009.jpg","name":"ThechefV20_Page10.jpg"},{"src":"assets/book_10_page_010.jpg","name":"ThechefV20_Page11.jpg"},{"src":"assets/book_10_page_011.jpg","name":"ThechefV20_Page12.jpg"},{"src":"assets/book_10_page_012.jpg","name":"ThechefV20_Page13.jpg"},{"src":"assets/book_10_page_013.jpg","name":"ThechefV20_Page14.jpg"},{"src":"assets/book_10_page_014.jpg","name":"ThechefV20_Page15.jpg"},{"src":"assets/book_10_page_015.jpg","name":"ThechefV20_Page16.jpg"},{"src":"assets/book_10_page_016.jpg","name":"ThechefV20_Page17.jpg"},{"src":"assets/book_10_page_017.jpg","name":"ThechefV20_Page18.jpg"}]}];
+        let activeBookId = null;
+        let currentIndex = 0;
+        let isSinglePageMode = window.innerWidth < 768;
+        let soundEnabled = true;
+        let noiseSynth = null;
+
+        
+        // Tích hợp giao tiếp SCORM 1.2 API tự động báo hoàn thành khi khách mở trang
+        function initScorm12() {
+            try {
+                let win = window;
+                let attempts = 0;
+                while (!win.API && win.parent && win.parent !== win && attempts < 10) {
+                    attempts++;
+                    win = win.parent;
+                }
+                const api = win.API || (window.opener && window.opener.API);
+                if (api) {
+                    api.LMSInitialize("");
+                    api.LMSSetValue("cmi.core.lesson_status", "completed");
+                    api.LMSSetValue("cmi.core.score.raw", "100");
+                    api.LMSCommit("");
+                }
+            } catch (err) {}
+        }
+        window.addEventListener('beforeunload', () => {
+            try {
+                let win = window;
+                while (!win.API && win.parent && win.parent !== win) win = win.parent;
+                if (win.API) win.API.LMSFinish("");
+            } catch (e) {}
+        });
+
+
+        function getPageSrc(p) { return typeof p === 'string' ? p : (p?.src || ''); }
+        function getPageName(p, i) { return (typeof p === 'object' && p?.name) ? p.name : ('Trang ' + (i + 1)); }
+
+        function playFlipSound() {
+            if (!soundEnabled) return;
+            try {
+                if (Tone.context.state !== 'running') Tone.start();
+                if (!noiseSynth) {
+                    noiseSynth = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 0.005, decay: 0.11, sustain: 0 } }).toDestination();
+                    noiseSynth.volume.value = -16;
+                }
+                noiseSynth.triggerAttackRelease("16n");
+            } catch (e) {}
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const icon = document.getElementById('soundIcon');
+            if (icon) icon.className = soundEnabled ? 'fa-solid fa-volume-high text-amber-400 text-sm' : 'fa-solid fa-volume-xmark text-slate-500 text-sm';
+        }
+
+        function escapeHtml(str) {
+            return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function renderHomepage() {
+            const grid = document.getElementById('bookGrid');
+            const q = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+            const filtered = books.filter(b => b.title.toLowerCase().includes(q) || (b.author && b.author.toLowerCase().includes(q)));
+            grid.innerHTML = filtered.map(book => `
+                <div class="book-card group flex flex-col cursor-pointer" onclick="openReader('${book.id}')">
+                    <div class="book-cover-wrapper relative w-full aspect-[2/3] rounded-xl overflow-hidden bg-slate-900 border border-slate-800 shadow-xl">
+                        <img src="${book.cover}" alt="${escapeHtml(book.title)}" class="w-full h-full object-cover transition duration-500 group-hover:scale-105">
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent opacity-85 group-hover:opacity-95 transition"></div>
+                        <div class="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1">
+                            <span class="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-bold text-[10px] uppercase">${escapeHtml(book.tag || 'Manga')}</span>
+                            <span class="px-2 py-0.5 rounded bg-slate-950/80 text-slate-200 font-semibold text-[10px] border border-white/10">${book.pages.length} trang</span>
+                        </div>
+                        <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                            <div class="px-3.5 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs uppercase shadow-xl flex items-center gap-1.5">
+                                <i class="fa-solid fa-book-open"></i> Đọc Ngay
+                            </div>
+                        </div>
+                        <div class="absolute bottom-3 left-3 right-3">
+                            <p class="text-[11px] text-amber-400 font-medium truncate">${escapeHtml(book.author || '')}</p>
+                            <h4 class="text-sm font-bold text-white leading-snug line-clamp-2">${escapeHtml(book.title)}</h4>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function buildFullPageList(book) {
+            const sortedPages = [...(book.pages || [])].sort((a, b) => getPageName(a, 0).localeCompare(getPageName(b, 0), undefined, { numeric: true, sensitivity: 'base' }));
+            const list = [{ src: book.cover, label: 'Bìa Truyện' }];
+            sortedPages.forEach((p, idx) => list.push({ src: getPageSrc(p), label: 'Trang ' + (idx + 1) }));
+            return list;
+        }
+
+        function openReader(bookId) {
+            activeBookId = bookId;
+            currentIndex = 0;
+            const modal = document.getElementById('readerModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+            updateSpreadModeUI();
+            renderFlipbookStage();
+            playFlipSound();
+        }
+
+        function closeReader() {
+            const modal = document.getElementById('readerModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+        }
+
+        function toggleSpreadMode() {
+            isSinglePageMode = !isSinglePageMode;
+            currentIndex = 0;
+            updateSpreadModeUI();
+            renderFlipbookStage();
+        }
+
+        function updateSpreadModeUI() {
+            const stage = document.getElementById('bookStage');
+            const text = document.getElementById('spreadModeText');
+            if (isSinglePageMode) {
+                stage.classList.add('single-mode');
+                if (text) text.textContent = 'Chế độ 1 Trang';
+            } else {
+                stage.classList.remove('single-mode');
+                if (text) text.textContent = 'Chế độ 2 Trang (Manga RTL)';
+            }
+        }
+
+        function renderFlipbookStage() {
+            const book = books.find(b => b.id === activeBookId) || books[0];
+            if (!book) return;
+            document.getElementById('readerTitle').textContent = book.title;
+            document.getElementById('readerSubtitle').textContent = (book.author || 'Manga') + ' • ' + book.pages.length + ' trang';
+            const fullPages = buildFullPageList(book);
+            const stage = document.getElementById('bookStage');
+
+            if (isSinglePageMode) {
+                const total = fullPages.length;
+                if (currentIndex >= total) currentIndex = total - 1;
+                const item = fullPages[currentIndex];
+                stage.innerHTML = `
+                    <div class="book-base-right"></div>
+                    <div onclick="nextPage()" class="relative z-10 w-full h-full rounded-lg overflow-hidden shadow-2xl border border-slate-700 bg-slate-950 cursor-pointer single-page-slide flex items-center justify-center">
+                        <img src="${item.src}" class="w-full h-full object-contain bg-slate-950">
+                        <div class="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-slate-950/80 text-[11px] font-semibold text-amber-400">${item.label}</div>
+                    </div>
+                `;
+                const slider = document.getElementById('pageSlider');
+                slider.max = total - 1; slider.value = currentIndex;
+                document.getElementById('pageIndicator').textContent = item.label + ' (' + (currentIndex + 1) + '/' + total + ')';
+                document.getElementById('prevBtn').disabled = (currentIndex === 0);
+                document.getElementById('nextBtn').disabled = (currentIndex === total - 1);
+                return;
+            }
+
+            const sheetCount = Math.ceil(fullPages.length / 2);
+            let html = '<div class="book-base-left"></div><div class="book-base-right"></div>';
+            for (let s = 0; s < sheetCount; s++) {
+                const front = fullPages[s * 2];
+                const back = fullPages[s * 2 + 1];
+                html += `
+                    <div class="sheet" id="sheet_${s}" onclick="onSheetClick(${s}, event)">
+                        <div class="page-face page-front">
+                            ${front ? `
+                                <img src="${front.src}" class="w-full h-full object-contain bg-slate-950">
+                                <span class="absolute bottom-2 left-2.5 px-2 py-0.5 rounded bg-slate-950/80 text-[10px] font-semibold text-amber-400">${front.label}</span>
+                            ` : '<div class="w-full h-full bg-slate-950"></div>'}
+                        </div>
+                        <div class="page-face page-back">
+                            ${back ? `
+                                <img src="${back.src}" class="w-full h-full object-contain bg-slate-950">
+                                <span class="absolute bottom-2 right-2.5 px-2 py-0.5 rounded bg-slate-950/80 text-[10px] font-semibold text-amber-400">${back.label}</span>
+                            ` : '<div class="w-full h-full bg-slate-950"></div>'}
+                        </div>
+                    </div>
+                `;
+            }
+            stage.innerHTML = html;
+            update3DSheetsState(sheetCount, fullPages.length);
+        }
+
+        function update3DSheetsState(sheetCount, totalFaces) {
+            for (let s = 0; s < sheetCount; s++) {
+                const el = document.getElementById('sheet_' + s);
+                if (!el) continue;
+                if (s < currentIndex) {
+                    el.classList.add('flipped');
+                    el.style.zIndex = 10 + s;
+                } else {
+                    el.classList.remove('flipped');
+                    el.style.zIndex = 10 + (sheetCount - s);
+                }
+            }
+            const slider = document.getElementById('pageSlider');
+            slider.max = sheetCount; slider.value = currentIndex;
+            document.getElementById('pageIndicator').textContent = currentIndex === 0 ? 'Bìa Truyện (Bên Trái)' : (currentIndex === sheetCount ? 'Đã đọc hết tập' : 'Trang Phải ' + (currentIndex * 2 - 1) + ' • Trang Trái ' + (currentIndex * 2));
+            document.getElementById('prevBtn').disabled = (currentIndex === 0);
+            document.getElementById('nextBtn').disabled = (currentIndex === sheetCount);
+        }
+
+        function onSheetClick(sheetIndex, e) {
+            e.stopPropagation();
+            const book = books.find(b => b.id === activeBookId) || books[0];
+            const fullPages = buildFullPageList(book);
+            const sheetCount = Math.ceil(fullPages.length / 2);
+            currentIndex = (sheetIndex >= currentIndex) ? sheetIndex + 1 : sheetIndex;
+            playFlipSound();
+            update3DSheetsState(sheetCount, fullPages.length);
+        }
+
+        function nextPage() {
+            const book = books.find(b => b.id === activeBookId) || books[0];
+            const fullPages = buildFullPageList(book);
+            if (isSinglePageMode) {
+                if (currentIndex < fullPages.length - 1) { currentIndex++; playFlipSound(); renderFlipbookStage(); }
+            } else {
+                const sheetCount = Math.ceil(fullPages.length / 2);
+                if (currentIndex < sheetCount) { currentIndex++; playFlipSound(); update3DSheetsState(sheetCount, fullPages.length); }
+            }
+        }
+
+        function prevPage() {
+            const book = books.find(b => b.id === activeBookId) || books[0];
+            const fullPages = buildFullPageList(book);
+            if (currentIndex > 0) {
+                currentIndex--; playFlipSound();
+                if (isSinglePageMode) renderFlipbookStage();
+                else update3DSheetsState(Math.ceil(fullPages.length / 2), fullPages.length);
+            }
+        }
+
+        function onSliderChange(val) {
+            currentIndex = parseInt(val, 10);
+            const book = books.find(b => b.id === activeBookId) || books[0];
+            const fullPages = buildFullPageList(book);
+            playFlipSound();
+            if (isSinglePageMode) renderFlipbookStage();
+            else update3DSheetsState(Math.ceil(fullPages.length / 2), fullPages.length);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (document.getElementById('readerModal').classList.contains('hidden')) return;
+            if (e.key === 'ArrowLeft') nextPage();
+            else if (e.key === 'ArrowRight') prevPage();
+            else if (e.key === 'Escape') closeReader();
+        });
+
+        window.onload = function() {
+            initScorm12();
+            renderHomepage();
+        };
+    </script>
+</body>
+</html>
